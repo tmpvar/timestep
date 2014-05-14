@@ -7,6 +7,7 @@ function Timestep(initial) {
   this.ops = [];
   this.store = initial || {};
   this.index = -1;
+  this.listeners = [];
 }
 
 Timestep.prototype.isTimestep = true;
@@ -59,13 +60,17 @@ Timestep.prototype.op = function(type, path, value, store) {
       this.ops.splice(this.index+1, this.ops.length);
     }
 
-    this.ops.push([
+    var op = [
       time,
       path,
       type,
       value,
       oldValue
-    ]);
+    ];
+
+    this.ops.push(op);
+
+    this.notify(op)
 
     this.index++;
   }
@@ -152,6 +157,36 @@ Timestep.prototype.val = function(path, value) {
     return loc[0][loc[1]];
   } else if (set) {
     this.op('+', [loc, path], value);
+  }
+};
+
+Timestep.prototype.change = function(fn) {
+  if (typeof fn === 'function') {
+    this.listeners.push(fn);
+  }
+  return this;
+};
+
+Timestep.prototype.ignore = function(fn) {
+
+  if (fn) {
+    var i = this.listeners.indexOf(fn);
+    if (i>-1) {
+      this.listeners.splice(i, 1);
+    }
+  } else {
+    this.listeners = [];
+  }
+
+  return this;
+};
+
+Timestep.prototype.notify = function(op) {
+  var l = this.listeners.length;
+  if (l) {
+    for (var i=0; i<l; i++) {
+      this.listeners[i](op)
+    }
   }
 };
 

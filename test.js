@@ -225,6 +225,80 @@ describe('Timestep', function() {
     });
   });
 
+  describe('#change', function() {
+    it('registers a new listener (no path)', function() {
+      var ts = new Timestep();
+      var fn = function() {};
+      ts.change(fn);
+      assert.ok(ts.listeners[0] === fn);
+    });
+
+    it('registers a new listener (path)', function() {
+      var ts = new Timestep();
+      var fn = function() {};
+      ts.change(fn);
+      assert.strictEqual(ts.listeners[0], fn);
+    });
+  });
+
+  describe('#ignore', function() {
+    it('removes a listener', function() {
+      var ts = new Timestep();
+      var fn = function() {};
+      ts.change(fn);
+      ts.change(function() {});
+
+      assert.strictEqual(ts.listeners.length, 2);
+
+      ts.ignore(fn);
+      assert.strictEqual(ts.listeners.length, 1);
+    });
+
+    it('removes all listeners if no fn is passed', function() {
+      var ts = new Timestep();
+      var fn = function() {};
+      ts.change(fn);
+      ts.change(function(){});
+      ts.ignore();
+      assert.ok(!ts.listeners.length);
+    });
+  });
+
+  describe('#notify', function() {
+    it('calls listeners', function() {
+      var ts = new Timestep();
+      var called = 0;
+      ts.change(function(op) {
+        assert.strictEqual(op.length, 5)
+        called++;
+      });
+      ts.notify([1,2,3,4,5]);
+
+      assert.strictEqual(called, 1);
+    });
+
+    it('notifies listeners when changed', function() {
+      var ts = new Timestep({ val : 1 });
+      ts.change(function(op) {
+
+        assert.deepEqual(op, [
+          Date.now(),
+          'val',
+          '~',
+          2,
+          1
+        ]);
+      });
+      ts.val('val', 2);
+    });
+
+  });
+
+  // Consider:
+  // - sync listener mutations with parent object 'ops'
+  // - nested Timestep objects
+
+
   describe('behavior', function() {
 
     it('uses a passed object as store', function() {
@@ -250,8 +324,9 @@ describe('Timestep', function() {
       ts.val('array/', 'a');
       assert.ok(ts.store.array.join(',') === '1,2,a');
       assert.equal(ts.index, ts.ops.length-1);
-
     });
-
   });
+
+
+
 });
