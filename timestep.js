@@ -1,10 +1,15 @@
 function Timestep() {
+  if (!this.isTimestep) {
+    return new Timestep();
+  }
+
   this.start = Date.now();
   this.ops = [];
   this.store = {};
   this.index = -1;
 }
 
+Timestep.prototype.isTimestep = true;
 Timestep.prototype.op = function(type, path, value, store) {
   var oldValue = null;
   var loc;
@@ -92,6 +97,7 @@ Timestep.prototype.rewind = function(steps) {
 
     this.index--;
   }
+  return this;
 }
 
 Timestep.prototype.forward = function(steps) {
@@ -110,6 +116,8 @@ Timestep.prototype.forward = function(steps) {
 
     this.op(c[2], c[1], c[3], false);
   }
+
+  return this;
 };
 
 Timestep.prototype.path = function(path) {
@@ -145,6 +153,11 @@ Timestep.prototype.val = function(path, value) {
   } else if (set) {
     this.op('+', [loc, path], value);
   }
+};
+
+Timestep.prototype.del = function(path) {
+  this.op('-', path);
+  return this;
 };
 
 module.exports = Timestep;
