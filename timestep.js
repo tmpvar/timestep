@@ -77,6 +77,7 @@ Timestep.prototype.rewind = function(steps) {
   if (!steps) {
     steps = this.index + 1;
   }
+
   for (var i = 0; i<steps; i++) {
     var c = this.ops[this.index];
 
@@ -106,13 +107,11 @@ Timestep.prototype.forward = function(steps) {
   }
 
   for (var i = 0; i<steps; i++) {
-    this.index++;
-    var c = this.ops[this.index];
-
-    if (!c) {
-      this.index--;
+    if (!this.ops[this.index+1]) {
       break;
     }
+
+    var c = this.ops[++this.index];
 
     this.op(c[2], c[1], c[3], false);
   }
@@ -142,11 +141,12 @@ Timestep.prototype.val = function(path, value) {
   var set = typeof value !== 'undefined';
   if (loc) {
     if (set) {
+      var op = '+';
       if (typeof loc[0][loc[1]] !== 'undefined') {
-        this.op('~', [loc, path], value);
-      } else {
-        this.op('+', [loc, path], value);
+        op = '~';
       }
+
+      this.op(op, [loc, path], value);
     }
 
     return loc[0][loc[1]];
