@@ -102,7 +102,6 @@ describe('Timestep', function() {
         ts.op = op;
         ts.rewind(1);
       }
-
     });
   });
 
@@ -224,5 +223,35 @@ describe('Timestep', function() {
       assert.ok(!ts.store.parent.child);
       assert.ok(ts.store.parent);
     });
+  });
+
+  describe('behavior', function() {
+
+    it('uses a passed object as store', function() {
+      var ts = new Timestep({ some : 'value' });
+      assert.strictEqual('value', ts.store.some);
+    });
+
+    it('drops future when rewound and changed', function() {
+
+      var ts = new Timestep();
+      ts.val('array', []);
+      ts.val('array/', 1);
+      ts.val('array/', 2);
+      ts.val('array/', 3);
+
+      assert.ok(ts.store.array.join(',') === '1,2,3');
+
+      ts.rewind(1);
+
+      assert.equal(ts.index, ts.ops.length-2);
+      assert.ok(ts.store.array.join(',') === '1,2');
+
+      ts.val('array/', 'a');
+      assert.ok(ts.store.array.join(',') === '1,2,a');
+      assert.equal(ts.index, ts.ops.length-1);
+
+    });
+
   });
 });

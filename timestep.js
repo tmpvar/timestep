@@ -1,11 +1,11 @@
-function Timestep() {
+function Timestep(initial) {
   if (!this.isTimestep) {
-    return new Timestep();
+    return new Timestep(initial);
   }
 
   this.start = Date.now();
   this.ops = [];
-  this.store = {};
+  this.store = initial || {};
   this.index = -1;
 }
 
