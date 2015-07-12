@@ -1,332 +1,357 @@
-var assert = require('assert');
 var Timestep = require('./timestep')
+var test = require('tape');
 
-describe('Timestep', function() {
-  describe('#val', function() {
-    it('add values to an array', function() {
-      var ts = new Timestep();
-      ts.val('something', []);
-      ts.val('something/', 'a');
-      assert.strictEqual(ts.store.something[0], 'a');
-    });
+test('Timestep#val add values to an array', function(t) {
+  var ts = new Timestep();
+  ts.val('something', []);
+  ts.val('something/', 'a');
+  t.equal(ts.store.something[0], 'a');
 
-    it('updates values in an array', function() {
-      var ts = new Timestep();
-      ts.val('something', []);
-      ts.val('something/', 'a');
-      ts.val('something/0', 'b');
-      assert.strictEqual(ts.store.something[0], 'b');
-    });
+  t.end();
+});
 
-    it('updates object properties', function() {
-      var ts = new Timestep();
-      ts.val('something', []);
-      ts.val('something/', 'a');
-      ts.val('something', { test: true});
-      assert.strictEqual(ts.store.something.test, true);
-    });
+test('Timestep#val updates values in an array', function(t) {
+  var ts = new Timestep();
+  ts.val('something', []);
+  ts.val('something/', 'a');
+  ts.val('something/0', 'b');
+  t.equal(ts.store.something[0], 'b');
 
-    it('acts like a getter', function() {
-      var ts = new Timestep();
-      ts.val('something', []);
-      ts.val('something/', 'a');
+  t.end();
+});
 
-      assert.strictEqual(ts.val('something/0'), 'a');
-    });
+test('Timestep#val updates object properties', function(t) {
+  var ts = new Timestep();
+  ts.val('something', []);
+  ts.val('something/', 'a');
+  ts.val('something', { test: true });
+  t.equal(ts.store.something.test, true);
+
+  t.end();
+});
+
+test('Timestep#val acts like a getter', function(t) {
+  var ts = new Timestep();
+  ts.val('something', []);
+  ts.val('something/', 'a');
+
+  t.equal(ts.val('something/0'), 'a');
+
+  t.end();
+});
+
+test('Timestep#rewind rewinds .store by passed steps', function(t) {
+  var ts = new Timestep();
+  ts.val('something', []);
+  ts.val('something/', 'a');
+  ts.val('something/', 'b');
+  ts.rewind(1);
+  t.ok(!ts.store.something[1]);
+  t.ok(ts.store.something[0]);
+
+  t.end();
+});
+
+test('Timestep#rewind rewinds .store completely', function(t) {
+  var ts = new Timestep();
+  ts.val('something', []);
+  ts.val('something/', 'a');
+  ts.val('something/', 'b');
+  ts.rewind();
+  t.ok(!Object.keys(ts.store).length);
+
+  t.end();
+});
+
+test('Timestep#rewind aborts when out of range', function(t) {
+  var ts = new Timestep();
+  ts.val('root', {});
+  ts.rewind(10);
+  t.equal(ts.index, -1);
+  t.ok(!ts.store.root);
+  ts.forward(1);
+  t.ok(ts.store.root);
+
+  t.end();
+});
+
+test('Timestep#rewind applies the inverse', function(t) {
+  var ts = new Timestep();
+
+  ts.val('test', 1);
+  ts.val('test', 2);
+  ts.op('-', 'test');
+
+  var _op = ts.op;
+  var ops = [
+    function(type, path, value, store) {
+      t.equal(type, '+');
+      t.equal(path, 'test');
+      t.equal(value, 2);
+      t.equal(store, false);
+      _op.call(ts, type, path, value, store);
+    },
+    function(type, path, value, store) {
+      t.equal(type, '+');
+      t.equal(path, 'test');
+      t.equal(value, 1);
+      t.equal(store, false);
+      _op.call(ts, type, path, value, store);
+    },
+    function(type, path, value, store) {
+      t.equal(type, '-');
+      t.equal(path, 'test');
+      t.equal(value, null);
+      t.equal(store, false);
+      _op.call(ts, type, path, value, store);
+    }
+  ];
+
+  while(ops.length) {
+    var op = ops.shift();
+    ts.op = op;
+    ts.rewind(1);
+  }
+
+  t.end();
+});
+
+test('Timestep#forward moves index forward # of steps', function(t) {
+  var ts = new Timestep();
+  ts.val('things', []);
+  ts.val('things/', 'cucumber');
+  ts.val('things/', 'tomato');
+  ts.val('things/', 'onion');
+
+  ts.rewind();
+  ts.forward(1);
+  t.equal(ts.store.things.length, 0)
+  ts.forward(1);
+  t.equal(ts.store.things.length, 1)
+  ts.forward(1);
+  t.equal(ts.store.things.length, 2)
+
+  t.end();
+});
+
+test('Timestep#forward jumps to the end', function(t) {
+  var ts = new Timestep();
+  ts.val('things', []);
+  ts.val('things/', 'cucumber');
+  ts.val('things/', 'tomato');
+  ts.val('things/', 'onion');
+  var orig = ts.store.things.concat();
+  ts.rewind();
+  ts.forward();
+  t.deepEqual(orig, ts.store.things);
+
+  t.end();
+});
+
+test('adds an addition operation (+)', function(t) {
+  var ts = new Timestep();
+
+  ts.op('+', 'monkey', 'value');
+  t.deepEqual(ts.ops[0], [
+    Date.now(),
+    'monkey',
+    '+',
+    'value',
+    null
+  ])
+
+  t.equal(ts.ops.length, 1);
+
+  t.end();
+});
+
+test('Timestep#op adds a deletion operation (-)', function(t) {
+  var ts = new Timestep();
+
+  ts.op('+', 'monkey', 'value');
+  ts.op('-', 'monkey');
+  t.deepEqual(ts.ops[1], [
+    Date.now(),
+    'monkey',
+    '-',
+    undefined,
+    'value'
+  ]);
+
+  t.equal(ts.ops.length, 2);
+
+  t.end();
+});
+
+test('Timestep#op adds an update operation (~)', function(t) {
+  var ts = new Timestep();
+
+  ts.op('+', 'monkey', 'value');
+  ts.op('~', 'monkey', 'new-value');
+  t.deepEqual(ts.ops[1], [
+    Date.now(),
+    'monkey',
+    '~',
+    'new-value',
+    'value'
+  ]);
+
+  t.equal(ts.ops.length, 2);
+
+  t.end();
+});
+
+test('Timestep#op applies without storing when store=false', function(t) {
+  var ts = new Timestep();
+
+  ts.op('+', 'monkey', 'value');
+  ts.op('~', 'monkey', 'new-value', false);
+  t.ok(!ts.ops[1])
+  t.equal(ts.ops.length, 1);
+
+  t.end();
+});
+
+test('Timestep#path splits the passed path', function(t) {
+  var ts = new Timestep();
+  t.deepEqual([ts.store, 'testing'], ts.path('testing'));
+
+  t.end();
+});
+
+test('Timestep#path returns `undefined` if path does not exist', function(t) {
+  var ts = new Timestep();
+  t.ok(typeof ts.path('monkey/test') === 'undefined');
+
+  t.end();
+});
+
+test('Timestep#path removes the specified path', function(t) {
+  var ts = new Timestep();
+  ts.val('parent', {});
+  ts.val('parent/child', {});
+  ts.val('parent/child/grandchild', {});
+  ts.val('parent/child/grandchild/another', {});
+
+  t.ok(ts.store.parent.child.grandchild.another);
+
+  ts.del('parent/child/grandchild/another');
+  t.ok(!ts.store.parent.child.grandchild.another);
+  t.ok(ts.store.parent.child.grandchild);
+
+  ts.del('parent/child');
+  t.ok(!ts.store.parent.child);
+  t.ok(ts.store.parent);
+
+  t.end();
+});
+
+test('Timestep#change registers a new listener (no path)', function(t) {
+  var ts = new Timestep();
+  var fn = function(t) {};
+  ts.change(fn);
+  t.ok(ts.listeners[0] === fn);
+
+  t.end();
+});
+
+test('registers a new listener (path)', function(t) {
+  var ts = new Timestep();
+  var fn = function(t) {};
+  ts.change(fn);
+  t.equal(ts.listeners[0], fn);
+
+  t.end();
+});
+
+test('Timestep#ignore removes a listener', function(t) {
+  var ts = new Timestep();
+  var fn = function(t) {};
+  ts.change(fn);
+  ts.change(function(t) {});
+  t.equal(ts.listeners.length, 2);
+
+  ts.ignore(fn);
+  t.equal(ts.listeners.length, 1);
+
+  t.end();
+});
+
+test('Timestep#ignore removes all listeners if no fn is passed', function(t) {
+  var ts = new Timestep();
+  var fn = function(t) {};
+  ts.change(fn);
+  ts.change(function(t){});
+  ts.ignore();
+  t.ok(!ts.listeners.length);
+
+  t.end();
+});
+
+test('Timestep#notify calls listeners', function(t) {
+  var ts = new Timestep();
+  var called = 0;
+  ts.change(function(op) {
+    t.equal(op.length, 5)
+    called++;
+
+  });
+  ts.notify([1,2,3,4,5]);
+  t.equal(called, 1);
+
+  t.end();
+});
+
+test('notifies listeners when changed', function(t) {
+  var ts = new Timestep({ val : 1 });
+  ts.change(function(op) {
+
+    t.deepEqual(op, [
+      Date.now(),
+      'val',
+      '~',
+      2,
+      1
+    ]);
+
   });
 
-  describe('#rewind', function() {
-    it('rewinds .store by passed steps', function() {
-      var ts = new Timestep();
-      ts.val('something', []);
-      ts.val('something/', 'a');
-      ts.val('something/', 'b');
-      ts.rewind(1);
-      assert.ok(!ts.store.something[1]);
-      assert.ok(ts.store.something[0]);
-    });
+  ts.val('val', 2);
 
-    it('rewinds .store completely', function() {
-      var ts = new Timestep();
-      ts.val('something', []);
-      ts.val('something/', 'a');
-      ts.val('something/', 'b');
-      ts.rewind();
-      assert.ok(!Object.keys(ts.store).length);
-    });
+  t.end();
+});
 
-    it('aborts when out of range', function() {
-      var ts = new Timestep();
-      ts.val('root', {});
-      ts.rewind(10);
-      assert.strictEqual(ts.index, -1);
-      assert.ok(!ts.store.root);
-      ts.forward(1);
-      assert.ok(ts.store.root);
-    });
-
-    it('applies the inverse', function() {
-      var ts = new Timestep();
-
-      ts.val('test', 1);
-      ts.val('test', 2);
-      ts.op('-', 'test');
-
-      var _op = ts.op;
-      var ops = [
-        function(type, path, value, store) {
-          assert.strictEqual(type, '+');
-          assert.strictEqual(path, 'test');
-          assert.strictEqual(value, 2);
-          assert.strictEqual(store, false);
-          _op.call(ts, type, path, value, store);
-        },
-        function(type, path, value, store) {
-          assert.strictEqual(type, '+');
-          assert.strictEqual(path, 'test');
-          assert.strictEqual(value, 1);
-          assert.strictEqual(store, false);
-          _op.call(ts, type, path, value, store);
-        },
-        function(type, path, value, store) {
-          assert.strictEqual(type, '-');
-          assert.strictEqual(path, 'test');
-          assert.strictEqual(value, null);
-          assert.strictEqual(store, false);
-          _op.call(ts, type, path, value, store);
-        }
-      ];
-
-      while(ops.length) {
-        var op = ops.shift();
-        ts.op = op;
-        ts.rewind(1);
-      }
-    });
-  });
-
-  describe('#forward', function() {
-    it('moves index forward # of steps', function() {
-      var ts = new Timestep();
-      ts.val('things', []);
-      ts.val('things/', 'cucumber');
-      ts.val('things/', 'tomato');
-      ts.val('things/', 'onion');
-
-      ts.rewind();
-      ts.forward(1);
-      assert.strictEqual(ts.store.things.length, 0)
-      ts.forward(1);
-      assert.strictEqual(ts.store.things.length, 1)
-      ts.forward(1);
-      assert.strictEqual(ts.store.things.length, 2)
-    });
-
-    it('jumps to the end', function() {
-      var ts = new Timestep();
-      ts.val('things', []);
-      ts.val('things/', 'cucumber');
-      ts.val('things/', 'tomato');
-      ts.val('things/', 'onion');
-      var orig = ts.store.things.concat();
-      ts.rewind();
-      ts.forward();
-      assert.deepEqual(orig, ts.store.things);
-    });
-  });
-
-  describe('#op', function() {
-    it('adds an addition operation (+)', function() {
-      var ts = new Timestep();
-
-      ts.op('+', 'monkey', 'value');
-      assert.deepEqual(ts.ops[0], [
-        Date.now(),
-        'monkey',
-        '+',
-        'value',
-        null
-      ])
-
-      assert.strictEqual(ts.ops.length, 1);
-    });
-
-    it('adds a deletion operation (-)', function() {
-      var ts = new Timestep();
-
-      ts.op('+', 'monkey', 'value');
-      ts.op('-', 'monkey');
-      assert.deepEqual(ts.ops[1], [
-        Date.now(),
-        'monkey',
-        '-',
-        undefined,
-        'value'
-      ]);
-
-      assert.strictEqual(ts.ops.length, 2);
-    });
-
-    it('adds an update operation (~)', function() {
-      var ts = new Timestep();
-
-      ts.op('+', 'monkey', 'value');
-      ts.op('~', 'monkey', 'new-value');
-      assert.deepEqual(ts.ops[1], [
-        Date.now(),
-        'monkey',
-        '~',
-        'new-value',
-        'value'
-      ]);
-
-      assert.strictEqual(ts.ops.length, 2);
-    });
-
-    it('applies without storing when store=false', function() {
-      var ts = new Timestep();
-
-      ts.op('+', 'monkey', 'value');
-      ts.op('~', 'monkey', 'new-value', false);
-      assert.ok(!ts.ops[1])
-      assert.strictEqual(ts.ops.length, 1);
-    });
-  });
-
-  describe('#path', function() {
-    it('splits the passed path', function() {
-      var ts = new Timestep();
-      assert.deepEqual([ts.store, 'testing'], ts.path('testing'));
-    });
-
-    it('returns `undefined` if path does not exist', function() {
-      var ts = new Timestep();
-      assert.ok(typeof ts.path('monkey/test') === 'undefined');
-    });
-  });
-
-  describe('#del', function() {
-    it('removes the specified path', function() {
-      var ts = new Timestep();
-      ts.val('parent', {});
-      ts.val('parent/child', {});
-      ts.val('parent/child/grandchild', {});
-      ts.val('parent/child/grandchild/another', {});
-
-      assert.ok(ts.store.parent.child.grandchild.another);
-
-      ts.del('parent/child/grandchild/another');
-      assert.ok(!ts.store.parent.child.grandchild.another);
-      assert.ok(ts.store.parent.child.grandchild);
-
-      ts.del('parent/child');
-      assert.ok(!ts.store.parent.child);
-      assert.ok(ts.store.parent);
-    });
-  });
-
-  describe('#change', function() {
-    it('registers a new listener (no path)', function() {
-      var ts = new Timestep();
-      var fn = function() {};
-      ts.change(fn);
-      assert.ok(ts.listeners[0] === fn);
-    });
-
-    it('registers a new listener (path)', function() {
-      var ts = new Timestep();
-      var fn = function() {};
-      ts.change(fn);
-      assert.strictEqual(ts.listeners[0], fn);
-    });
-  });
-
-  describe('#ignore', function() {
-    it('removes a listener', function() {
-      var ts = new Timestep();
-      var fn = function() {};
-      ts.change(fn);
-      ts.change(function() {});
-
-      assert.strictEqual(ts.listeners.length, 2);
-
-      ts.ignore(fn);
-      assert.strictEqual(ts.listeners.length, 1);
-    });
-
-    it('removes all listeners if no fn is passed', function() {
-      var ts = new Timestep();
-      var fn = function() {};
-      ts.change(fn);
-      ts.change(function(){});
-      ts.ignore();
-      assert.ok(!ts.listeners.length);
-    });
-  });
-
-  describe('#notify', function() {
-    it('calls listeners', function() {
-      var ts = new Timestep();
-      var called = 0;
-      ts.change(function(op) {
-        assert.strictEqual(op.length, 5)
-        called++;
-      });
-      ts.notify([1,2,3,4,5]);
-
-      assert.strictEqual(called, 1);
-    });
-
-    it('notifies listeners when changed', function() {
-      var ts = new Timestep({ val : 1 });
-      ts.change(function(op) {
-
-        assert.deepEqual(op, [
-          Date.now(),
-          'val',
-          '~',
-          2,
-          1
-        ]);
-      });
-      ts.val('val', 2);
-    });
-
-  });
 
   // Consider:
   // - sync listener mutations with parent object 'ops'
   // - nested Timestep objects
 
 
-  describe('behavior', function() {
+test('uses a passed object as store', function(t) {
+  var ts = new Timestep({ some : 'value' });
+  t.equal('value', ts.store.some);
 
-    it('uses a passed object as store', function() {
-      var ts = new Timestep({ some : 'value' });
-      assert.strictEqual('value', ts.store.some);
-    });
+  t.end();
+});
 
-    it('drops future when rewound and changed', function() {
+test('drops future when rewound and changed', function(t) {
 
-      var ts = new Timestep();
-      ts.val('array', []);
-      ts.val('array/', 1);
-      ts.val('array/', 2);
-      ts.val('array/', 3);
+  var ts = new Timestep();
+  ts.val('array', []);
+  ts.val('array/', 1);
+  ts.val('array/', 2);
+  ts.val('array/', 3);
 
-      assert.ok(ts.store.array.join(',') === '1,2,3');
+  t.ok(ts.store.array.join(',') === '1,2,3');
 
-      ts.rewind(1);
+  ts.rewind(1);
 
-      assert.equal(ts.index, ts.ops.length-2);
-      assert.ok(ts.store.array.join(',') === '1,2');
+  t.equal(ts.index, ts.ops.length-2);
+  t.ok(ts.store.array.join(',') === '1,2');
 
-      ts.val('array/', 'a');
-      assert.ok(ts.store.array.join(',') === '1,2,a');
-      assert.equal(ts.index, ts.ops.length-1);
-    });
-  });
+  ts.val('array/', 'a');
+  t.ok(ts.store.array.join(',') === '1,2,a');
+  t.equal(ts.index, ts.ops.length-1);
 
-
-
+  t.end();
 });

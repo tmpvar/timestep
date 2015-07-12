@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "main": "timestep.js",
   "scripts": {
-    "test": "mocha -t test.js -R spec"
+    "test": "tape test.js"
   },
   "repository": {
     "type": "git",
@@ -23,5 +23,8 @@
   "bugs": {
     "url": "https://github.com/tmpvar/timestep/issues"
   },
-  "homepage": "https://github.com/tmpvar/timestep"
+  "homepage": "https://github.com/tmpvar/timestep",
+  "devDependencies": {
+    "tape": "^4.0.0"
+  }
 }
